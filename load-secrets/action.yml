@@ -1,0 +1,28 @@
+name: Load secrets from 1Password
+description: >
+  Loads the op:// references listed in a file into environment variables for the rest of the job.
+  The file holds references only, never values. Wraps 1password/load-secrets-action pinned by SHA.
+author: BloqrAI
+
+inputs:
+  service-account-token:
+    description: The repository's OP_SERVICE_ACCOUNT_TOKEN (pass `${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}`).
+    required: true
+  env-file:
+    description: Path to a file of NAME=op://vault/item/field references, relative to the workspace.
+    required: false
+    default: .github/op-secrets.env
+
+runs:
+  using: composite
+  steps:
+    # v5.0.1. The tag is annotated; this is the commit it points to (verified with `git ls-remote`).
+    - name: Load secrets
+      uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2
+      with:
+        # A composite action cannot declare outputs whose names come from the env file, so values
+        # are exported as masked environment variables for the remaining steps of this job.
+        export-env: true
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ inputs.service-account-token }}
+        OP_ENV_FILE: ${{ inputs.env-file }}

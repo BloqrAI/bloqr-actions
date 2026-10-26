@@ -1,0 +1,42 @@
+name: Validate
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+
+permissions:
+    contents: read
+
+jobs:
+    validate:
+        name: Validate actions
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+            - name: Every action.yml parses and every `uses:` is pinned to a full commit SHA
+              run: |
+                  python3 - <<'PY'
+                  import glob, re, sys, yaml
+                  bad = []
+                  for path in glob.glob('**/action.yml', recursive=True) + glob.glob('.github/workflows/*.yml'):
+                      text = open(path).read()
+                      yaml.safe_load(text)
+                      for m in re.finditer(r'^\s*-?\s*uses:\s*(\S+)', text, re.M):
+                          ref = m.group(1)
+                          if ref.startswith('./'):
+                              continue
+                          if not re.search(r'@[0-9a-f]{40}$', ref):
+                              bad.append(f'{path}: {ref}')
+                  if bad:
+                      print('Not pinned to a commit SHA:'); print('\n'.join(bad)); sys.exit(1)
+                  print('ok')
+                  PY
+
+            - name: No op:// vault names or secret values in this public repository
+              run: |
+                  if grep -rEn 'op://[A-Za-z0-9_-]+/' --include='*.yml' --include='*.md' . | grep -v 'op://vault/' | grep -v 'op://ci-example/'; then
+                      echo 'Real vault references do not belong in this public repo; use op://vault/ or op://ci-example/ placeholders.'; exit 1
+                  fi
